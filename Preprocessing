@@ -1,0 +1,67 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May  9 07:42:10 2019
+
+@author: Jörg Ebner
+"""
+import pandas as pd
+import numpy as np
+
+#einlesen Datensatz
+Berlin  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/immode_Berlin.pkl")
+
+#dazwischen müssen die Datensätze aneinander gehängt werden (alle Städte)
+
+#der komplette Datensatz wird housing genannt
+housing = Berlin.drop(['Utilities Cost', 'Heating Cost', 'Cost Total', 'Deposit', 'Address_1', 'Address_2', 'Energy', 'Parking', 'Pets', 'Last Renovated', 'Energy certificate', 'Energy consumption value', 'Hot water'], axis=1)
+
+#Tausenderpunkt wird entfernt, Komma durch Punkt ausgetauscht und als float formatiert
+def replace(filename, columns): #panda replace!!
+    for column in filename[columns]:
+        filename[column] = [d.replace('.', '') for d in filename[column]]
+        filename[column] = [d.replace(',', '.') for d in filename[column]]
+replace(housing, ['Area', 'Rent', 'Rooms'])
+def asfloat(filename, columns):
+    for column in filename[columns]:
+        filename[column] = filename[column].astype(float)
+asfloat(housing, ['Area', 'Rent', 'Rooms', 'Bedrooms', 'Year built', 'Longitude', 'Latitude'])
+
+#wenn bei der Beschreiburg ein Eintrag den Wert nan hat, so wird dieser geleert 
+def concatstring(filename, columns):
+    filename['Total Description'] = ''
+    for column in filename[columns]:
+        #Spalte Total Description wird hinzugefügt und die restlichen Beschreibungsspalten werden entfernt
+        filename['Total Description'] = filename['Total Description'] + ' ' + filename[column].fillna('')
+        del filename[column]
+concatstring(housing, ['Equipment', 'Description', 'Description Main', 'Description Equipment', 'Description Location', 'Description Misc'])
+
+#Etage wird herausgefiltert
+housing['Floormax'] = ''
+Floorna = housing[pd.isna(housing['Floor'])]
+Floorvon = housing[housing['Floor'].str.contains('von') == True]
+Floorexact = housing[(housing['Floor'].str.contains('von') == False) & (pd.notna(housing['Floor']))]
+Floorna['Floormax'] = np.nan
+Floorexact['Floormax'] = np.nan
+split = Floorvon['Floor'].str.split(' ', n=2, expand=True)
+Floorvon[['Floor', 'Floormax']] = split[[0,2]]
+housing = Floorexact.append([Floorna, Floorvon])
+housing[['Floor', 'Floormax']] = housing[['Floor', 'Floormax']].astype(float)
+housing = housing.sort_index(axis=0)
+del Floorna, Floorexact, Floorvon, split
+
+#Zeilen mit unrealistischer Miete (<= 120 EUR/ >= 50 TEUR) und unrealistischer Wohnfläche (< 5qm) werden entfernt
+housing = housing[(housing['Rent'] > 120) & 
+                  (housing['Rent'] < 50000) & 
+                  (housing['Area'] >= 5) & 
+                  (housing['Area'] < 1000) &
+                  (housing['Latitude'].notna()) &
+                  (housing['Longitude'].notna()) &
+                  (housing['Floor'].notna())].reset_index(drop=True)
+
+#later also for City
+if 'Type' in housing.columns:
+    dummyCols = pd.get_dummies(housing.Type)
+    housing = housing.join(dummyCols)
+    del housing['Type'], dummyCols
+
+#housing.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl")
