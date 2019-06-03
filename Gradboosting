@@ -1,0 +1,88 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed May 29 11:13:01 2019
+
+@author: User
+"""
+#Gradient Boosting Maschine
+
+#pip install xgboost==0.80: #Problem, dass die Console immer abgestürzt ist, daher die ältere Version
+import pandas as pd
+import numpy as np
+import xgboost as xgb
+#from numpy import loadtxt
+from xgboost import plot_tree
+import matplotlib.pyplot as plt
+import sklearn
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score
+import math
+
+#Lediglich, wenn nan-Werte ausgefüllt werden müssen
+#from sklearn.base import TransformerMixin
+#class DataFrameImputer(TransformerMixin):
+#    def fit(self, X, y=None):
+#        self.fill = pd.Series([X[c].value_counts().index[0]
+#           if X[c].dtype == np.dtype('O') else X[c].median() for c in X],
+#           index=X.columns)
+#        return self
+#    def transform(self, X, y=None):
+#        return X.fillna(self.fill)
+
+housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl")
+
+gradboodf = housing.drop(['City', 'ExposeID', 'Title', 'Bedrooms', 'Bathrooms', 'Year built', 'Condition', 
+                           'Quality of Appliances', 'Heating type', 'Energy sources',
+                           'Energy certificate type', 'Ground Plan', 'Total Description'], axis=1)
+
+#Wo keine Werte vorhanden sind, wird der Mittelwert hinzugefügt
+gradboodf.Floormax = gradboodf.Floormax.fillna(np.mean(gradboodf.Floormax))
+
+
+np.random.seed(0) #Dadurch bleibt der Trainingssatz immer gleich!!
+def	split_train_test(data, test_ratio):		
+    #Indixes werden gemicht		
+    shuffled_indices = np.random.permutation(len(data))		
+    #Größe des Testdatensatzes		
+    test_set_size = int(len(data) * test_ratio)	
+    #Test- und Trainingsdatensatz wird erstellt			
+    test_indices = shuffled_indices[:test_set_size]		
+    train_indices = shuffled_indices[test_set_size:]				
+    return data.iloc[train_indices], data.iloc[test_indices]
+#80% Training, 20% Test
+train_set, test_set = split_train_test(gradboodf, 0.2) #gradboodf.iloc[:200] für die ersten 200 Zeilen
+
+train_X = train_set.drop(['Rent'], axis=1)
+test_X = test_set.drop(['Rent'], axis=1)
+train_y = train_set.Rent
+test_y = test_set.Rent
+
+clf = xgb.XGBModel(max_depth=6, n_estimators=1000, learning_rate=0.05).fit(train_X, train_y)
+prediction = clf.predict(test_X)#bislang am Besten mit me von 153 bei Berlin
+submission = pd.DataFrame({ 'Rent_real': test_y,
+                            'Rent_predicted': prediction })
+mse = sklearn.metrics.mean_squared_error(submission.Rent_real, submission.Rent_predicted)
+me = math.sqrt(mse)
+print(round(me))
+
+#plot_tree(gbm)
+#plt.show()
+
+#dtest = xgb.DMatrix(test_set)
+#num_round = 10
+#bst = xgb.train()
+
+#Parameter:
+#booster[default=gbtree] #tree-based model, gblinear: linear model
+#silent[default=0] #bei 1 keine Infos
+#nthread[default to maximum number of threads available if not set]
+#für Parallel-Processing: Anzahl der Kerne eingeben: 4
+#Boosterparameter:
+#eta[default=0.3] #Analog zur Lernrate, macht das Model robuster, durch das Senken des Gewichtes bei jedem Schritt
+#typisch: 0.01-0.2
+#min_child_weight[default=1] Higher values prevent a model from learning relations which might be highly specific to the particular sample selected for a tree.
+#Too high values can lead to under-fitting hence, it should be tuned using CV.
+#max_depth[default=6] #Maximale Tiefe des Baumes, typisch: 3-10
+#max_leaf_nodes
+#gamma[default=0] #Ein Baum teilt sich nur auf, wenn das den Fehler verkleinert
