@@ -1,26 +1,15 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed May 29 16:37:34 2019
-
-@author: User
-"""
 #Doc2Vec
 import pandas as pd
-#import numpy as np
-#import matplotlib.pyplot as plt 
-#import nltk
 import string
-#from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+import gensim
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 #from nltk.tokenize import word_tokenize
 #from nltk.corpus import stopwords
 #from nltk.stem.porter import PorterStemmer
 #from os import listdir
 from collections import Counter
 
-housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl")
-
-from collections import Counter
-import string
+housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing_unique.pkl")
 
 #Sonderzeichen, Großbuchstaben, Zahlen werden erkannt und entfernt/als Kleinbuchstaben ausgegeben
 #eine Vokabelliste wird erstellt
@@ -31,6 +20,8 @@ import string
 #Wörter auf den Wortstamm zurückführen
     #porter = PorterStemmer()
     #tokens = [porter.stem(word) for word in tokens]
+    
+###########################Total Description###################################
 vocab = Counter()
 def cleandesc(filename): 
     for index, row in housing.iterrows(): #Dauer: 41 Minuten
@@ -66,3 +57,104 @@ def save_list(lines, filename):
 	file.close()
 # save tokens to a vocabulary file
 save_list(tokens, 'vocab.txt')
+
+##Doc to Vec
+list = []
+for index, row in housing.iterrows():
+    list.append(row['Total Description'].split())
+
+#PV-DM
+documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(list)]
+model = Doc2Vec(documents, vector_size=100, dm=1, window=2, min_count=1, workers=4)    
+from gensim.test.utils import get_tmpfile
+fname = get_tmpfile("PM-DM_model_desc100")
+model.save(fname)
+model = Doc2Vec.load(fname)
+d2v_model = gensim.models.doc2vec.Doc2Vec.load(fname)
+#similar_doc = d2v_model.docvecs.most_similar(14) 
+#print(similar_doc)
+docvec = pd.DataFrame(model.docvecs.vectors_docs)
+docvec.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DM_desc100.pkl")
+
+#PV-DBOW
+documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(list)]
+model = Doc2Vec(documents, vector_size=100, dm=0, window=2, min_count=1, workers=4)    
+from gensim.test.utils import get_tmpfile
+fname = get_tmpfile("PM-DBOW_model_desc100")
+model.save(fname)
+model = Doc2Vec.load(fname)
+d2v_model = gensim.models.doc2vec.Doc2Vec.load(fname)
+#similar_doc = d2v_model.docvecs.most_similar(14) 
+#print(similar_doc)
+docvec = pd.DataFrame(model.docvecs.vectors_docs)
+docvec.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DBOW_desc100.pkl")
+
+###########################Title###############################################
+vocab = Counter()
+def cleandesc(filename): 
+    for index, row in housing.iterrows(): #Dauer: 41 Minuten
+        #einzelne Wörter herausfiltern
+        tokens = row['Title'].split()
+        #Sonderzeichen entfernen
+        table = str.maketrans('', '', string.punctuation)
+        tokens = [w.translate(table) for w in tokens]
+        #Umwandlung Groß- in Kleinbuchstaben
+        tokens = [word.lower() for word in tokens]
+        #Zahlen herausfiltern
+        tokens = [word for word in tokens if word.isalpha()]
+        #bearbeitete Tokens wieder in die Spalte hinzufügen
+        housing['Title'][index] = ' '.join(tokens)
+        #Vokabelliste updaten
+        vocab.update(tokens)
+cleandesc(housing)
+
+#nur Vokabeln, die oft genug vorkommen, werden weiter behalten
+min_occurane = 5
+tokens = [k for k,c in vocab.items() if c >= min_occurane]
+#print(len(tokens)) 
+
+# save list to file
+def save_list(lines, filename):
+	# convert lines to a single blob of text
+	data = '\n'.join(lines)
+	# open file
+	file = open(filename, 'w', encoding= 'utf-8')
+	# write text
+	file.write(data)
+	# close file
+	file.close()
+# save tokens to a vocabulary file
+save_list(tokens, 'vocabtitle.txt')
+
+##Doc to Vec
+list = []
+for index, row in housing.iterrows():
+    list.append(row['Title'].split())
+
+#PV-DM
+documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(list)]
+model = Doc2Vec(documents, vector_size=50, dm=1, window=2, min_count=1, workers=4)    
+from gensim.test.utils import get_tmpfile
+fname = get_tmpfile("PM-DM_model_title50")
+model.save(fname)
+model = Doc2Vec.load(fname)
+d2v_model = gensim.models.doc2vec.Doc2Vec.load(fname)
+#similar_doc = d2v_model.docvecs.most_similar(14) 
+#print(similar_doc)
+docvec = pd.DataFrame(model.docvecs.vectors_docs)
+docvec.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DM_title50.pkl")
+
+#PV-DBOW
+documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(list)]
+model = Doc2Vec(documents, vector_size=50, dm=0, window=2, min_count=1, workers=4)    
+from gensim.test.utils import get_tmpfile
+fname = get_tmpfile("PM-DBOW_model_title50")
+model.save(fname)
+model = Doc2Vec.load(fname)
+d2v_model = gensim.models.doc2vec.Doc2Vec.load(fname)
+
+#similar_doc = d2v_model.docvecs.most_similar(14) 
+#print(similar_doc)
+docvec = pd.DataFrame(model.docvecs.vectors_docs)
+docvec.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DBOW_title50.pkl")
+
