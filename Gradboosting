@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed May 29 11:13:01 2019
-
-@author: User
-"""
 #Gradient Boosting Maschine
 
 #pip install xgboost==0.80: #Problem, dass die Console immer abgestürzt ist, daher die ältere Version
@@ -11,34 +5,46 @@ import pandas as pd
 import numpy as np
 import xgboost as xgb
 #from numpy import loadtxt
-from xgboost import plot_tree
-import matplotlib.pyplot as plt
 import sklearn
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score
 import math
+from catboost import CatBoostRegressor
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import r2_score
+import pickle
 
-#Lediglich, wenn nan-Werte ausgefüllt werden müssen
-#from sklearn.base import TransformerMixin
-#class DataFrameImputer(TransformerMixin):
-#    def fit(self, X, y=None):
-#        self.fill = pd.Series([X[c].value_counts().index[0]
-#           if X[c].dtype == np.dtype('O') else X[c].median() for c in X],
-#           index=X.columns)
-#        return self
-#    def transform(self, X, y=None):
-#        return X.fillna(self.fill)
+#housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl")
+housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing_neu.pkl")
+#XGBoost
+#housing_neu:                   1.7156090622587745 0.8512348101547742
+#desc_title_DM_neu:             3.4191452673056992 0.37811766655981915
+#desc_title_DBOW_neu:           2.30713786572625   0.7256172848855085
+#housing_desc_title_DM_neu:     1.7097040845025309 0.850648885657184
+#housing_desc_title_DBOW_neu:   1.530415360258714 0.881389238951765
 
-housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl")
+#Cross Valuation: 
+#housing_neu:                   1.495612        0.005920        1.706770       0.019646
+#desc_title_DM_neu:             2.408565        0.001971        3.445285       0.014245
+#desc_title_DBOW_neu:           1.605915        0.003604        2.307638       0.010955
+#housing_desc_title_DM_neu:     1.161098        0.004189        1.699733       0.012018
+#housing_desc_title_DBOW_neu:   1.082145        0.006214        1.525954       0.013088
 
-gradboodf = housing.drop(['City', 'ExposeID', 'Title', 'Bedrooms', 'Bathrooms', 'Year built', 'Condition', 
-                           'Quality of Appliances', 'Heating type', 'Energy sources',
-                           'Energy certificate type', 'Ground Plan', 'Total Description'], axis=1)
+#CatBoost
+#housing_neu:                   1.940393248722199 0.8096976429661552
+#desc_title_DM_neu:             3.598232232634508 0.31126604728603746
+#desc_title_DBOW_neu:           2.653966116876606 0.636921608304196
+#housing_desc_title_DM_neu:     1.8889440735524108 0.8176924022050918
+#housing_desc_title_DBOW_neu:   1.7643425801129824 0.842358234002561
+
+gradboodf = housing.drop([ 'ExposeID', 'Title', 'Energy sources', 'Energy certificate type', 'Ground Plan', 'Total Description', 'Rent', 'Area'], axis=1)
+del housing
+PM_DM_desc     = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DM_desc.pkl")
+PM_DBOW_desc   = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DBOW_desc.pkl")
+PM_DM_title    = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DM_title.pkl")
+PM_DBOW_title  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DBOW_title.pkl")
 
 #Wo keine Werte vorhanden sind, wird der Mittelwert hinzugefügt
 gradboodf.Floormax = gradboodf.Floormax.fillna(np.mean(gradboodf.Floormax))
-
 
 np.random.seed(0) #Dadurch bleibt der Trainingssatz immer gleich!!
 def	split_train_test(data, test_ratio):		
@@ -50,39 +56,177 @@ def	split_train_test(data, test_ratio):
     test_indices = shuffled_indices[:test_set_size]		
     train_indices = shuffled_indices[test_set_size:]				
     return data.iloc[train_indices], data.iloc[test_indices]
+
+######################### Boosting housing ####################################
+###############################################################################
 #80% Training, 20% Test
-train_set, test_set = split_train_test(gradboodf, 0.2) #gradboodf.iloc[:200] für die ersten 200 Zeilen
+train_set, test_set = split_train_test(gradboodf, 0.2)
+train_X = train_set.drop(['Rent per Sqm'], axis=1)
+test_X = test_set.drop(['Rent per Sqm'], axis=1)
+train_y = train_set['Rent per Sqm']
+test_y = test_set['Rent per Sqm']
 
-train_X = train_set.drop(['Rent'], axis=1)
-test_X = test_set.drop(['Rent'], axis=1)
-train_y = train_set.Rent
-test_y = test_set.Rent
+#XGBoosting Maschine
+model = xgb.XGBModel(max_depth=6, n_estimators=1000, learning_rate=0.05).fit(train_X, train_y)
+prediction = model.predict(test_X) 
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : prediction })
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #2.008993949234042
+r2 = r2_score(test_y, prediction) #0.7960038763420937
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_housing', 'wb'))
+#Cross Validation
+#kfold = KFold(n_splits=5, random_state=7)
+#results = cross_val_score(model, train_X, train_y, cv=kfold)
 
-clf = xgb.XGBModel(max_depth=6, n_estimators=1000, learning_rate=0.05).fit(train_X, train_y)
-prediction = clf.predict(test_X)#bislang am Besten mit me von 153 bei Berlin
-submission = pd.DataFrame({ 'Rent_real': test_y,
-                            'Rent_predicted': prediction })
-mse = sklearn.metrics.mean_squared_error(submission.Rent_real, submission.Rent_predicted)
-me = math.sqrt(mse)
-print(round(me))
+#CatBoostRegressor
+model = CatBoostRegressor(task_type = "CPU").fit(train_X, train_y)
+predicts = model.predict(test_X)
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : predicts })   
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #2.3067283455933176
+r2 = r2_score(test_y, predicts) #0.7310586613101437
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_housing', 'wb'))
+#Cross Validation
+#kfold = KFold(n_splits=5, random_state=7)
+#results = cross_val_score(model, train_X, train_y, cv=kfold)
+#pickle.dump(results, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_housing_CV_results', 'wb'))
 
-#plot_tree(gbm)
-#plt.show()
 
-#dtest = xgb.DMatrix(test_set)
-#num_round = 10
-#bst = xgb.train()
+######################### Boosting desc + title ###############################
+###############################################################################
+######################### PM-DM ###############################################
+dv = pd.concat([PM_DM_desc, PM_DM_title], ignore_index=True, axis=1)
+dv['Rent per Sqm'] = gradboodf['Rent per Sqm']
+#80% Training, 20% Test
+train_set, test_set = split_train_test(dv, 0.2)
+train_X = train_set.drop(['Rent per Sqm'], axis=1)
+test_X = test_set.drop(['Rent per Sqm'], axis=1)
+train_y = train_set['Rent per Sqm']
+test_y = test_set['Rent per Sqm']
 
-#Parameter:
-#booster[default=gbtree] #tree-based model, gblinear: linear model
-#silent[default=0] #bei 1 keine Infos
-#nthread[default to maximum number of threads available if not set]
-#für Parallel-Processing: Anzahl der Kerne eingeben: 4
-#Boosterparameter:
-#eta[default=0.3] #Analog zur Lernrate, macht das Model robuster, durch das Senken des Gewichtes bei jedem Schritt
-#typisch: 0.01-0.2
-#min_child_weight[default=1] Higher values prevent a model from learning relations which might be highly specific to the particular sample selected for a tree.
-#Too high values can lead to under-fitting hence, it should be tuned using CV.
-#max_depth[default=6] #Maximale Tiefe des Baumes, typisch: 3-10
-#max_leaf_nodes
-#gamma[default=0] #Ein Baum teilt sich nur auf, wenn das den Fehler verkleinert
+#XGBoosting Maschine
+model = xgb.XGBModel(max_depth=6, n_estimators=1000, learning_rate=0.05).fit(train_X, train_y)
+prediction = model.predict(test_X) 
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : prediction })
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #3.443106741475895
+r2 = r2_score(test_y, prediction) #0.4008085178898846
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_desc_title_DM', 'wb'))
+
+#CatBoostRegressor
+model = CatBoostRegressor(task_type = "CPU").fit(train_X, train_y)
+predicts = model.predict(test_X)
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : predicts })   
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #3.6391842597190824
+r2 = r2_score(test_y, predicts) #0.33061997504384255
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_desc_title_DM', 'wb'))
+#Cross Validation
+#kfold = KFold(n_splits=5, random_state=7)
+#results = cross_val_score(model, train_X, train_y, cv=kfold)
+#pickle.dump(results, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_desc_title_CV_results_DM', 'wb'))
+
+######################### PM-DBOW #############################################
+dv = pd.concat([PM_DBOW_desc, PM_DBOW_title], ignore_index=True, axis=1)
+dv['Rent per Sqm'] = gradboodf['Rent per Sqm']
+#80% Training, 20% Test
+train_set, test_set = split_train_test(dv, 0.2)
+train_X = train_set.drop(['Rent per Sqm'], axis=1)
+test_X = test_set.drop(['Rent per Sqm'], axis=1)
+train_y = train_set['Rent per Sqm']
+test_y = test_set['Rent per Sqm']
+
+#XGBoosting Maschine
+model = xgb.XGBModel(max_depth=6, n_estimators=1000, learning_rate=0.05).fit(train_X, train_y)
+prediction = model.predict(test_X) 
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : prediction })
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #2.3133914949075414
+r2 = r2_score(test_y, prediction) #0.7295027048366135
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_desc_title_DBOW', 'wb'))
+
+#CatBoostRegressor
+model = CatBoostRegressor(task_type = "CPU").fit(train_X, train_y)
+predicts = model.predict(test_X)
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : predicts })   
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #2.661523825465099
+r2 = r2_score(test_y, predicts) #0.6419650902343901
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_desc_title_DBOW', 'wb'))
+#Cross Validation
+#kfold = KFold(n_splits=5, random_state=7)
+#results = cross_val_score(model, train_X, train_y, cv=kfold)
+#pickle.dump(results, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_desc_title_CV_results_DBOW', 'wb'))
+
+
+######################### Boosting housing + desc + title #####################
+###############################################################################
+######################### PM-DM ###############################################
+hdv = pd.concat([gradboodf.drop(['Rent per Sqm'], axis=1), PM_DM_desc, PM_DM_title], ignore_index=True, axis=1)
+hdv['Rent per Sqm'] = gradboodf['Rent per Sqm']
+#80% Training, 20% Test
+train_set, test_set = split_train_test(hdv, 0.2)
+train_X = train_set.drop(['Rent per Sqm'], axis=1)
+test_X = test_set.drop(['Rent per Sqm'], axis=1)
+train_y = train_set['Rent per Sqm']
+test_y = test_set['Rent per Sqm']
+
+#XGBoosting Maschine
+model = xgb.XGBModel(max_depth=6, n_estimators=1000, learning_rate=0.05).fit(train_X, train_y)
+prediction = model.predict(test_X) 
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : prediction })
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #1.363503322897485
+r2 = r2_score(test_y, prediction) #0.9060326327895623
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_housing_desc_title_DM', 'wb'))
+
+#CatBoostRegressor
+model = CatBoostRegressor(task_type = "CPU").fit(train_X, train_y)
+predicts = model.predict(test_X)
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : predicts })   
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #1.9403946575788316
+r2 = r2_score(test_y, predicts) #0.8096973666213108
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_housing_desc_title_DM', 'wb'))
+#Cross Validation
+#kfold = KFold(n_splits=5, random_state=7)
+#results = cross_val_score(model, train_X, train_y, cv=kfold)
+#pickle.dump(results, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_housing_desc_title_CV_results_DM', 'wb'))
+
+######################### PM-DBOW #############################################
+hdv = pd.concat([gradboodf.drop(['Rent per Sqm'], axis=1), PM_DBOW_desc, PM_DBOW_title], ignore_index=True, axis=1)
+hdv['Rent per Sqm'] = gradboodf['Rent per Sqm']
+#80% Training, 20% Test
+train_set, test_set = split_train_test(hdv, 0.2)
+train_X = train_set.drop(['Rent per Sqm'], axis=1)
+test_X = test_set.drop(['Rent per Sqm'], axis=1)
+train_y = train_set['Rent per Sqm']
+test_y = test_set['Rent per Sqm']
+
+#XGBoosting Maschine
+model = xgb.XGBModel(max_depth=6, n_estimators=1000, learning_rate=0.05).fit(train_X, train_y)
+prediction = model.predict(test_X) 
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : prediction })
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #1.2057088474296334
+r2 = r2_score(test_y, prediction) #0.9265233152049457
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_housing_desc_title_DBOW', 'wb'))
+
+#CatBoostRegressor
+model = CatBoostRegressor(task_type = "CPU").fit(train_X, train_y)
+predicts = model.predict(test_X)
+submission = pd.DataFrame({ 'Rent_per_Sqm_real' : test_y, 'Rent_per_Sqm_predicted' : predicts })   
+mse = sklearn.metrics.mean_squared_error(submission.Rent_per_Sqm_real, submission.Rent_per_Sqm_predicted)
+me = math.sqrt(mse) #1.7342019002624742
+r2 = r2_score(test_y, predicts) #0.8400175183185353
+#Save model
+pickle.dump(model, open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/CatBoost_housing_desc_title_DBOW', 'wb'))
