@@ -1,0 +1,29 @@
+```python
+#Einlesen der Daten
+import os
+import glob
+import pandas as pd
+Augsburg  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/immode_Ausburg.pkl")
+
+def concederate(indir='C:/Users/User/Desktop/Bachelorarbeit', #Inputdateien
+                outfile='C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/kompletter_Datensatz.pkl'): #Outputdatei
+    os.chdir(indir)
+    fileList=glob.glob('*.pkl')
+    print(len(fileList)) #Anzahl der Dateien (Aktuell: 30)
+    dfList=[]
+    colnames = Augsburg.columns
+    for filename in fileList:
+        print(filename) #funktioniert, wenn pd.read_pickle(filename) <-- ohne header
+        df=pd.read_pickle(filename) #Datensatz wird gelesen
+        dfList.append(df) #Datei wird angehängt
+    concatDf=pd.concat(dfList,axis=0) #Verkettung
+    concatDf.columns=colnames
+    concatDf.to_pickle(outfile) #hat funktioniert
+concederate()
+
+housing = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/kompletter_Datensatz.pkl").reset_index(drop=True)
+housing.drop_duplicates(subset ="ExposeID", 
+                     keep = False, inplace = True)
+housing = housing.reset_index(drop=True)
+housing.to_pickle('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/kompletter_Datensatz.pkl')
+```
