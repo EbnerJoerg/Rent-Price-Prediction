@@ -1,19 +1,14 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu May  9 07:42:10 2019
-
-@author: Jörg Ebner
-"""
 import pandas as pd
 import numpy as np
 
 #einlesen Datensatz
-Berlin  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/immode_Berlin.pkl")
+#Berlin  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/immode_Berlin.pkl")
+#unwichtige Spalten werden gelöscht
 
-#dazwischen müssen die Datensätze aneinander gehängt werden (alle Städte)
-
+#dazwischen müssen die Datensätze aneinander gehängt werden.
 #der komplette Datensatz wird housing genannt
-housing = Berlin.drop(['Utilities Cost', 'Heating Cost', 'Cost Total', 'Deposit', 'Address_1', 'Address_2', 'Energy', 'Parking', 'Pets', 'Last Renovated', 'Energy certificate', 'Energy consumption value', 'Hot water'], axis=1)
+
+housing = housing.drop(['Utilities Cost', 'Heating Cost', 'Cost Total', 'Deposit', 'Address_1', 'Address_2', 'Energy', 'Parking', 'Pets', 'Last Renovated', 'Energy certificate', 'Energy consumption value', 'Hot water'], axis=1)
 
 #Tausenderpunkt wird entfernt, Komma durch Punkt ausgetauscht und als float formatiert
 def replace(filename, columns): #panda replace!!
@@ -49,6 +44,9 @@ housing[['Floor', 'Floormax']] = housing[['Floor', 'Floormax']].astype(float)
 housing = housing.sort_index(axis=0)
 del Floorna, Floorexact, Floorvon, split
 
+#Miete pro Quadratmeter
+housing['Rent per Sqm'] = housing.Rent / housing.Area
+
 #Zeilen mit unrealistischer Miete (<= 120 EUR/ >= 50 TEUR) und unrealistischer Wohnfläche (< 5qm) werden entfernt
 housing = housing[(housing['Rent'] > 120) & 
                   (housing['Rent'] < 50000) & 
@@ -56,12 +54,47 @@ housing = housing[(housing['Rent'] > 120) &
                   (housing['Area'] < 1000) &
                   (housing['Latitude'].notna()) &
                   (housing['Longitude'].notna()) &
+                  (housing['Rent per Sqm'] >= 3) &
+                  (housing['Rent per Sqm'] <= 50) &
                   (housing['Floor'].notna())].reset_index(drop=True)
 
-#later also for City
-if 'Type' in housing.columns:
-    dummyCols = pd.get_dummies(housing.Type)
-    housing = housing.join(dummyCols)
-    del housing['Type'], dummyCols
+#Dummy Variablen
+column = ['City', 'Type']
+for word in column:
+    if word in housing.columns:
+        dummyCols = pd.get_dummies(housing[word])
+        housing = housing.join(dummyCols)
+        del housing[word], dummyCols
+del word, column
+ 
+#Variablen mit aufnehmen            
+for i in housing[housing.Bedrooms > 6].index:
+    housing.Bedrooms[i] = float('Nan')
+housing.Bedrooms = housing.Bedrooms.fillna(np.mean(housing.Bedrooms))
 
-#housing.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl")
+housing.Bathrooms = housing.Bathrooms.astype(float)
+for i in housing[housing.Bathrooms > 4].index:
+    housing.Bathrooms[i] = float('Nan')
+housing.Bathrooms = housing.Bathrooms.fillna(np.mean(housing.Bathrooms))
+
+for i in housing[(housing['Year built'] > 2019) | (housing['Year built'] < 1500)].index:
+    housing['Year built'][i] = float('Nan')
+housing['Year built'] = housing['Year built'].fillna(np.mean(housing['Year built']))
+
+column = ['Condition', 'Quality of Appliances', 'Heating type'] 
+for word in column:
+    if word in housing.columns:
+        dummyCols = pd.get_dummies(housing[word])
+        housing = housing.join(dummyCols)
+        del housing[word], dummyCols
+del word, column
+
+for i in gradboodf[gradboodf.Floor > 50].index:
+    gradboodf.Floor[i] = float('Nan')
+gradboodf.Floor = gradboodf.Floor.fillna(np.mean(gradboodf.Floor))
+for i in gradboodf[gradboodf.Floormax > 50].index:
+    gradboodf.Floormax[i] = float('Nan')
+gradboodf.Floormax = gradboodf.Floormax.fillna(np.mean(gradboodf.Floormax))
+for i in gradboodf[gradboodf.Rooms > 10].index:
+    gradboodf.Rooms[i] = float('Nan')
+gradboodf.Rooms = gradboodf.Rooms.fillna(np.mean(gradboodf.Rooms))
