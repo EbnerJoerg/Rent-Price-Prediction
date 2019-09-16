@@ -1,0 +1,96 @@
+
+import pandas as pd
+import numpy as np
+import xgboost as xgb
+#from numpy import loadtxt
+import sklearn
+import math
+from catboost import CatBoostRegressor
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import r2_score
+import pickle
+from sklearn.model_selection import train_test_split
+
+housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing_neu.pkl")
+gradboodf = housing.drop([ 'ExposeID', 'Title', 'Energy sources', 'Energy certificate type', 'Ground Plan', 'Total Description', 'Rent', 'Area'], axis=1)
+
+#gradboodf = housing.drop([ 'ExposeID', 'Title', 'Bedrooms', 'Bathrooms', 'Year built', 'Condition', 
+#                           'Quality of Appliances', 'Heating type', 'Energy sources',
+#                           'Energy certificate type', 'Ground Plan', 'Total Description', 'Rent', 'Area'], axis=1)
+del housing
+PM_DM_desc     = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DM_desc.pkl")
+PM_DBOW_desc   = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DBOW_desc.pkl")
+PM_DM_title    = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DM_title.pkl")
+PM_DBOW_title  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DBOW_title.pkl")
+PM_DM_desc100    = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DM_desc100.pkl")
+PM_DBOW_desc100  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DBOW_desc100.pkl")
+PM_DM_title50    = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DM_title50.pkl")
+PM_DBOW_title50  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/PM-DBOW_title50.pkl")
+
+#Wo keine Werte vorhanden sind, wird der Mittelwert hinzugefügt
+gradboodf.Floormax = gradboodf.Floormax.fillna(np.mean(gradboodf.Floormax))
+
+######################### Boosting housing ####################################
+###############################################################################
+X, y = gradboodf.drop(['Rent per Sqm'], axis=1) , gradboodf['Rent per Sqm']
+data_dmatrix = xgb.DMatrix(data=X,label=y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
+params = {'learning_rate': 0.05,'max_depth': 6}
+cv_results = xgb.cv(dtrain=data_dmatrix, params=params, nfold=5,
+                    num_boost_round=1000, early_stopping_rounds=10,metrics="rmse", as_pandas=True, seed=123)
+cv_results.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing.pkl")
+XGBoost_CV_housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing.pkl")
+XGBoost_CV_housing
+######################### Boosting desc200 + title100 #########################
+###############################################################################
+######################### PM-DM ###############################################
+dv = pd.concat([PM_DM_desc, PM_DM_title], ignore_index=True, axis=1)
+dv['Rent per Sqm'] = gradboodf['Rent per Sqm']
+X, y = dv.drop(['Rent per Sqm'], axis=1) , dv['Rent per Sqm']
+data_dmatrix = xgb.DMatrix(data=X,label=y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
+params = {'learning_rate': 0.05,'max_depth': 6}
+cv_results = xgb.cv(dtrain=data_dmatrix, params=params, nfold=5,
+                    num_boost_round=1000, early_stopping_rounds=10,metrics="rmse", as_pandas=True, seed=123)
+cv_results.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_desc_title_DM.pkl")
+XGBoost_CV_desc_title_DM  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_desc_title_DM.pkl")
+XGBoost_CV_desc_title_DM
+######################### PM-DBOW #############################################
+dv = pd.concat([PM_DBOW_desc, PM_DBOW_title], ignore_index=True, axis=1)
+dv['Rent per Sqm'] = gradboodf['Rent per Sqm']
+X, y = dv.drop(['Rent per Sqm'], axis=1) , dv['Rent per Sqm']
+data_dmatrix = xgb.DMatrix(data=X,label=y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
+params = {'learning_rate': 0.05,'max_depth': 6}
+cv_results = xgb.cv(dtrain=data_dmatrix, params=params, nfold=5,
+                    num_boost_round=1000, early_stopping_rounds=10,metrics="rmse", as_pandas=True, seed=123)
+cv_results.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_desc_title_DBOW.pkl")
+XGBoost_CV_desc_title_DBOW  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_desc_title_DBOW.pkl")
+XGBoost_CV_desc_title_DBOW
+######################### Boosting housing + desc200 + title100 ###############
+###############################################################################
+######################### PM-DM ###############################################
+hdv = pd.concat([gradboodf.drop(['Rent per Sqm'], axis=1), PM_DM_desc, PM_DM_title], ignore_index=True, axis=1)
+hdv['Rent per Sqm'] = gradboodf['Rent per Sqm']
+X, y = hdv.drop(['Rent per Sqm'], axis=1) , hdv['Rent per Sqm']
+data_dmatrix = xgb.DMatrix(data=X,label=y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
+params = {'learning_rate': 0.05,'max_depth': 6}
+cv_results = xgb.cv(dtrain=data_dmatrix, params=params, nfold=5,
+                    num_boost_round=1000, early_stopping_rounds=10,metrics="rmse", as_pandas=True, seed=123)
+cv_results.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing_desc_title_DM.pkl")
+XGBoost_CV_housing_desc_title_DM  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing_desc_title_DM.pkl")
+XGBoost_CV_housing_desc_title_DM
+######################### PM-DBOW #############################################
+hdv = pd.concat([gradboodf.drop(['Rent per Sqm'], axis=1), PM_DBOW_desc, PM_DBOW_title], ignore_index=True, axis=1)
+hdv['Rent per Sqm'] = gradboodf['Rent per Sqm']
+X, y = hdv.drop(['Rent per Sqm'], axis=1) , hdv['Rent per Sqm']
+data_dmatrix = xgb.DMatrix(data=X,label=y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
+params = {'learning_rate': 0.05,'max_depth': 6}
+cv_results = xgb.cv(dtrain=data_dmatrix, params=params, nfold=5,
+                    num_boost_round=1000, early_stopping_rounds=10,metrics="rmse", as_pandas=True, seed=123)
+cv_results.to_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing_ desc_title_DBOW.pkl")
+XGBoost_CV_housing_desc_title_DBOW  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing_ desc_title_DBOW.pkl")
+XGBoost_CV_housing_desc_title_DBOW
