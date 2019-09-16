@@ -1,4 +1,3 @@
-```python
 #Einlesen der Daten
 import os
 import glob
@@ -26,4 +25,3 @@ housing.drop_duplicates(subset ="ExposeID",
                      keep = False, inplace = True)
 housing = housing.reset_index(drop=True)
 housing.to_pickle('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/kompletter_Datensatz.pkl')
-```
