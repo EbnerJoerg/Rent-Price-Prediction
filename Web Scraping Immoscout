@@ -1,0 +1,81 @@
+# Import libraries
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+
+immo = pd.DataFrame(columns = ['ExposeID', 'City', 'TotalRent', 'BaseRent', 'Area', 'Floor', 'Title', 
+                               'Condition', 'Energy', 'Description', 'Equipment', 'Location', 'Miscellaneous', 
+                               'Balcony', 'YearBuilt'])
+# Set the URL you want to webscrape from
+expose = 'https://www.immobilienscout24.de/expose/113506314#/'
+for i in range(10):
+    # Connect to the URL
+    response = requests.get(expose)
+    # Parse HTML and save to BeautifulSoup object¶
+    soup = BeautifulSoup(response.text, "lxml") #html.parser
+    Title = soup.title.text
+    #match = soup.find('script', type='text/javascript')
+    match2 = soup.find('s24-ad-targeting', style='display:none;')
+    dictionary = match2.text
+    dictionar = dictionary.replace("{", "").replace("}", "")
+    dictionar = "".join(dictionar.split("\n"))
+    dictionar = "".join(dictionar.split(" "))
+    dictionar = "".join(dictionar.split('"'))
+    dicti = dictionar.split(",")
+    df = pd.DataFrame(dicti)
+    df= df[0].str.split(":", n = 1, expand = True)
+    #df.replace('"','')
+    df[0] = df[0].astype(str)
+    df[1] = df[1].astype(str)
+    df = df.transpose()        
+    df.columns = df.loc[0,:]
+    df = df.iloc[1]  
+    
+    if not(soup.find('dd', class_="is24qa-objektzustand grid-item three-fifths")):
+        zustand = ''
+    else: 
+        zustand = soup.find('dd', class_="is24qa-objektzustand grid-item three-fifths").text
+    if not(soup.find('dd', class_='is24qa-wesentliche-energietraeger grid-item three-fifths')):
+        energieträger = ''
+    else: 
+        energieträger = soup.find('dd', class_='is24qa-wesentliche-energietraeger grid-item three-fifths').text
+    if not(soup.find('pre', class_='is24qa-objektbeschreibung text-content short-text')):
+        objbeschr = ''
+    else: 
+        objbeschr = soup.find('pre', class_='is24qa-objektbeschreibung text-content short-text').text
+    if not(soup.find('pre', class_='is24qa-ausstattung text-content short-text')):
+        ausstattung = ''
+    else:
+        ausstattung = soup.find('pre', class_='is24qa-ausstattung text-content short-text').text
+    if not(soup.find('pre', class_='is24qa-lage text-content short-text')):
+        lage = ''
+    else: 
+        lage = soup.find('pre', class_='is24qa-lage text-content short-text').text
+    if not(soup.find('pre', class_='is24qa-sonstiges text-content short-text')):
+        misc = ''
+    else:
+        misc = soup.find('pre', class_='is24qa-sonstiges text-content short-text').text
+        
+    words = ['obj_regio2', 'obj_scoutId', 'obj_totalRent', 'obj_baseRent',
+             'obj_livingSpace', 'obj_floor', 'obj_balcony', 'obj_yearConstructed']
+    for word in words:
+        if not(word in df):
+            df[word] = 'Nan'
+    obj = pd.DataFrame({'ExposeID'  : [df.obj_scoutId], 
+                        'City'      : [df.obj_regio2],
+                        'TotalRent' : [df.obj_totalRent],
+                        'BaseRent'  : [df.obj_baseRent], 
+                        'Area'      : [df.obj_livingSpace],
+                        'Floor'     : [df.obj_floor],
+                        'Title'     : [Title],
+                        'Condition' : [zustand],
+                        'Energy'    : [energieträger],
+                        'Description' : [objbeschr],
+                        'Equipment' : [ausstattung],
+                        'Location'  : [lage],
+                        'Miscellaneous' : [misc],
+                        'Balcony'   : [df.obj_balcony],
+                        'YearBuilt' : [df.obj_yearConstructed]})
+    immo = immo.append(obj,  ignore_index=True)
+    expose = 'https://www.immobilienscout24.de/Suche/controller/exposeNavigation/navigate.go?action=NEXT&searchUrl=/Suche/S-T/Wohnung-Miete/Baden-Wuerttemberg/Freiburg-im-Breisgau?enteredFrom%3Done_step_search&exposeId=' + df['obj_scoutId']
+ 
