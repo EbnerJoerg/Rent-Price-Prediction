@@ -1,0 +1,239 @@
+import pandas as pd
+import seaborn as sns
+from xgboost import plot_importance
+import pickle
+import numpy as np
+#
+#Seaborn Plots
+
+submission  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/pred_housingdocvec.pkl")
+submission['Round_real'] = submission['Rent_per_Sqm_real'].round()
+# Cut the window in 2 parts
+f, (ax_hist, ax_box) = plt.subplots(2, sharex=True, gridspec_kw={"height_ratios": (.15, .85)})
+#Boxplot
+boxplot = sns.boxplot(x='Round_real', y='Rent_per_Sqm_predicted', data=submission, ax=ax_box)
+boxplot.set(xlabel='real', ylabel='predicted', title='')
+boxplot.set_xticks([0,2,7,12,17,22,27,32,37,42,47])
+boxplot.set_xticklabels([3,5,10,15,20,25,30,35,40,45,50])
+#Histogram
+distplot = sns.distplot(submission['Round_real'], ax=ax_hist)
+distplot.set(ylabel='rel. freq.', title='Rent per Squaremeter')
+ax_hist.set(xlabel='')
+
+housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl")
+Aachen = housing[housing['Aachen'] == 1]
+scatter = sns.scatterplot(x="Longitude", y="Latitude", hue='Rent per Sqm',
+                          sizes=5, palette='Set3', data=Aachen)
+
+
+#Plot importance of Feature
+model = pickle.load(open('housing_docvec_model', 'rb'))
+plot_importance(model, max_num_features=10)
+plt.show()
+#0 ist Latitude
+#1 ist Longitude
+#3 ist Rooms
+#4 ist Floormax
+#2 ist Floor
+#47 - 246 docvec, 247 - 346 docvectitle
+
+#Heatmap der nan-Werte
+housing = pd.read_pickle('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/kompletter_Datensatz.pkl')
+Heatmap = sns.heatmap(housing.isnull(), cbar=False, xticklabels=True, yticklabels=False)
+fig = Heatmap.get_figure()
+fig.savefig('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/Heatmap_neu.png', bbox_inches='tight', dpi=300) #Problem, die x-Achsenbeschriftung wird zur Hälfte weggeschnitten
+
+#Categorical
+housing  = pd.read_pickle('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl')
+housing.iloc[[0,1,2,3,4], [0,50,51,52,53,54,55,56,57,58,59]]
+#relative Frequency
+#Type
+housing  = pd.read_pickle('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/kompletter_Datensatz.pkl')
+housing.Type = housing.Type.fillna('keine Angabe')
+ty = pd.DataFrame(housing.Type.value_counts(normalize=True)) #relative Häufigkeit
+ty = ty.reset_index(drop=False)
+ty.columns = ['Type', 'relative Frequency']
+typerel = sns.barplot(y='Type', x='relative Frequency', data=ty)
+fig = typerel.get_figure()
+fig.savefig('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/Type_Barplot_relFreq_neu.png', bbox_inches='tight', dpi=300) #Problem, die x-Achsenbeschriftung wird zur Hälfte weggeschnitten
+
+
+#City
+city = pd.DataFrame(housing.City.value_counts(normalize=True)) #relative Häufigkeit
+city = city.reset_index(drop=False)
+city.columns = ['City', 'relative Frequency']
+ax = sns.barplot(x='City', y='relative Frequency', data=city)
+ax.set_xticklabels(ax.get_xticklabels(), rotation=40, ha='right')
+fig = ax.get_figure()
+fig.savefig('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/City_Barplot_relFreq_neu.png', bbox_inches='tight', dpi=300) #Problem, die x-Achsenbeschriftung wird zur Hälfte weggeschnitten
+
+
+
+#absolute Frequency
+sns.set(style="darkgrid")
+fig = sns.countplot(y='Type', data=housing, order = housing.Type.value_counts().index)
+
+pd.value_counts(housing.Type)
+
+
+#WordCloud
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+text = open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/vocab.txt')
+
+data = []
+with open(filepath, encoding='utf8') as fp:  
+   line = fp.readline()
+   cnt = 1
+   while line:
+       data.append(line)
+       #print("Line {}: {}".format(cnt, line.strip()))
+       line = fp.readline()
+       cnt += 1      
+str1 = ''.join(data)
+wordcloud = WordCloud(width=480, height=480, margin=0).generate(str1)
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis('off')
+plt.show()
+
+import pandas as pd
+import string
+import gensim
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+from nltk.corpus import stopwords
+from collections import Counter
+housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing_unique.pkl")
+vocab = Counter()
+def cleandesc(filename): 
+    for index, row in housing.iterrows(): #Dauer: 41 Minuten
+        #einzelne Wörter herausfiltern
+        tokens = row['Total Description'].split()
+        #Sonderzeichen entfernen
+        table = str.maketrans('', '', string.punctuation)
+        tokens = [w.translate(table) for w in tokens]
+        #Umwandlung Groß- in Kleinbuchstaben
+        tokens = [word.lower() for word in tokens]
+        #Stopwords entfernen
+        stop_words = set(stopwords.words('german'))
+        tokens = [w for w in tokens if not w in stop_words]
+        #Zahlen herausfiltern
+        tokens = [word for word in tokens if word.isalpha()]
+        #bearbeitete Tokens wieder in die Spalte hinzufügen
+        housing['Total Description'][index] = ' '.join(tokens)
+        #Vokabelliste updaten
+        vocab.update(tokens)
+cleandesc(housing)
+
+vocabulary = dict(vocab)
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+wordcloud = WordCloud(width=1920, height=1920, margin=0, background_color="white", colormap="ocean")
+wordcloud.generate_from_frequencies(frequencies=vocabulary)
+plt.figure()
+plt.imshow(wordcloud, interpolation="bilinear")
+plt.axis("off")
+plt.savefig("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/Wordcloud.png", bbox_inches='tight', dpi=300)
+plt.show()
+#save
+np.save('vocabulary.npy', vocabulary) 
+# Load
+vocabulary = np.load('vocabulary').item()
+
+
+#Performanceverlauf
+from matplotlib.pyplot import scatter
+import matplotlib.pyplot as plt
+XGBoost_CV_housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing.pkl")
+XGBoost_CV_housing_desc_title_DBOW  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing_ desc_title_DBOW.pkl")
+#scatter
+fig,ax = plt.subplots(figsize=(20,10))
+ax.scatter(XGBoost_CV_housing.index,XGBoost_CV_housing['test-rmse-mean'],s=10,marker=',',color='c',linewidths=0.5, label='housing_test')
+ax.scatter(XGBoost_CV_housing.index,XGBoost_CV_housing['train-rmse-mean'],s=10,marker=',',color='b',linewidths=0.5, label='housing_train')
+ax.scatter(XGBoost_CV_housing_desc_title_DBOW.index,XGBoost_CV_housing_desc_title_DBOW['test-rmse-mean'],s=10,marker=',',color='m',linewidths=0.5,  label='housing_desc_title_test')
+ax.scatter(XGBoost_CV_housing_desc_title_DBOW.index,XGBoost_CV_housing_desc_title_DBOW['train-rmse-mean'],s=10,marker=',',color='r',linewidths=0.5, label='housing_desc_title_train')
+ax.legend(prop={'size': 30})
+ax.set_title('Vergleich housing und Kombination (CV in XGBoost)', fontsize = 40)
+ax.set_xlabel('Iteration', fontsize = 30)
+ax.set_ylabel('RMSE-mean', fontsize = 30)
+plt.savefig("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/Vgl_hou_houdesctitle_lineplot.png", bbox_inches='tight')
+
+XGBoost_CV_housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_housing_neu.pkl")
+XGBoost_CV_desc_title_DBOW  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_CV_desc_title_DBOW_neu.pkl")
+#scatter
+fig,ax = plt.subplots(figsize=(20,10))
+ax.scatter(XGBoost_CV_housing.index,XGBoost_CV_housing['test-rmse-mean'],s=10,marker=',',color='c',linewidths=0.5, label='housing_test')
+ax.scatter(XGBoost_CV_housing.index,XGBoost_CV_housing['train-rmse-mean'],s=10,marker=',',color='b',linewidths=0.5, label='housing_train')
+ax.scatter(XGBoost_CV_housing_desc_title_DBOW.index,XGBoost_CV_desc_title_DBOW['test-rmse-mean'],s=10,marker=',',color='m',linewidths=0.5,  label='desc_title_test')
+ax.scatter(XGBoost_CV_housing_desc_title_DBOW.index,XGBoost_CV_desc_title_DBOW['train-rmse-mean'],s=10,marker=',',color='r',linewidths=0.5, label='desc_title_train')
+ax.legend(prop={'size': 30})
+ax.set_title('Vergleich housing und Doc2Vec (CV in XGBoost)', fontsize = 40)
+ax.set_xlabel('Iteration', fontsize = 30)
+ax.set_ylabel('RMSE-mean', fontsize = 30)
+plt.savefig("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/Vgl_hou_desctitle_lineplot.png", bbox_inches='tight')
+
+#Correlationmatrix
+corr = gradboodf.corr()
+mask = np.zeros_like(corr, dtype=np.bool)
+mask[np.triu_indices_from(mask)] = True
+f, ax = plt.subplots(figsize=(22, 18))
+cmap = sns.diverging_palette(220, 10, as_cmap=True)
+sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
+            square=True, linewidths=.5, cbar_kws={"shrink": .5})
+#die ist gut
+corr = gradboodf.iloc[:, [8,0,1,2,3,4,5,6,7,39,40,41,42,43,44,45,46,47,48,58,59,60,61]].corr()
+mask = np.zeros_like(corr, dtype=np.bool)
+mask[np.triu_indices_from(mask)] = True
+f, ax = plt.subplots(figsize=(11, 9))
+cmap = sns.diverging_palette(220, 10, as_cmap=True)
+sns_plot = sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
+            square=True, linewidths=.5, cbar_kws={"shrink": .5})
+fig = sns_plot.get_figure()
+fig.savefig("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/Correl1.png", bbox_inches='tight', dpi=300)
+
+
+corr = gradboodf.iloc[:, [0,1,2,3,4,5]].corr()
+mask = np.zeros_like(corr, dtype=np.bool)
+mask[np.triu_indices_from(mask)] = True
+f, ax = plt.subplots(figsize=(22, 18))
+cmap = sns.diverging_palette(220, 10, as_cmap=True)
+sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
+            square=True, linewidths=.5, cbar_kws={"shrink": .5})
+
+#0-8: Variablen, 9-38: Städte, 39-48: Typ, 49-57: Condition
+#58-61: Qualität, 62-74
+#'Condition', 'Quality of Appliances', 'Heating type']
+
+
+#Importance-Plot
+from xgboost import plot_importance
+model = pickle.load(open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_housing', "rb"))
+plot_importance(model, max_num_features=20)
+model = pickle.load(open('C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/XGBoost_housing_desc_title_DBOW', "rb"))
+imp_plot = plot_importance(model, height=0.5, max_num_features=20, grid=False)
+fig = imp_plot.get_figure()
+fig.savefig("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/Importance.png", bbox_inches='tight', dpi=300)
+
+
+#0 ist Latitude
+#1 ist Longitude
+#3 ist Rooms
+#4 ist Floormax
+#2 ist Floor
+#47 - 246 docvec, 247 - 346 docvectitle
+
+
+import gensim
+fname = get_tmpfile("PM-DBOW_model_title")
+d2v_model = gensim.models.doc2vec.Doc2Vec.load(fname)
+housing  = pd.read_pickle("C:/Users/User/Desktop/Bachelorarbeit/Berlin_Daten/housing.pkl")
+d2v_model.infer_vector(['geräumige', 'wohnung', 'mitten', 'in', 'der', 'innenstadt'])
+
+title_docs = list()
+for doc_id in range(len(housing)):
+    title_docs.append(housing['Title'][doc_id].split())
+documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(title_docs)]
+inferred_vector = d2v_model.infer_vector(['geräumige', 'wohnung', 'mitten', 'in', 'der', 'innenstadt'])
+sims = d2v_model.docvecs.most_similar([inferred_vector], topn=len(d2v_model.docvecs))
+sims[0]
+documents[99127]
+documents[7453]
