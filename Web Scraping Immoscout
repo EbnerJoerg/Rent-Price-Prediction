@@ -1,14 +1,29 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Mar 15 11:38:51 2020
+
+@author: Jörg Ebner
+"""
+
 # Import libraries
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+import time
+from random import random
+from PIL import Image
+from io import BytesIO
+from datetime import datetime
+from pdf2image import convert_from_path
 
-immo = pd.DataFrame(columns = ['ExposeID', 'City', 'TotalRent', 'BaseRent', 'Area', 'Floor', 'Title', 
-                               'Condition', 'Energy', 'Description', 'Equipment', 'Location', 'Miscellaneous', 
-                               'Balcony', 'YearBuilt'])
+
+immo = pd.DataFrame(columns = ['ExposeID', 'City', 'City2', 'City3', 'City4', 'Street', 'HouseNumber', 'ZipCode', 
+                               'TotalRent', 'BaseRent', 'Area', 'Rooms', 'Bedrooms', 'Bathrooms', 'Floor', 'MaxFloor', 'Title', 
+                               'Condition', 'Energy', 'EnergyEfficiency', 'Description', 'Equipment', 'Location', 'Miscellaneous', 
+                               'Balcony', 'Garden', 'Kitchen', 'Cellar', 'Lift', 'AssistedLiving', 'YearBuilt', 'PetsAllowed', 'BarrierFree', 'NumberImages', 'ImageText', 'Video', 'GroundPlan'])
 # Set the URL you want to webscrape from
-expose = 'https://www.immobilienscout24.de/expose/113506314#/'
-for i in range(10):
+expose = 'https://www.immobilienscout24.de/expose/116456714/'
+for k in range(1,1901):
     # Connect to the URL
     response = requests.get(expose)
     # Parse HTML and save to BeautifulSoup object¶
@@ -29,53 +44,180 @@ for i in range(10):
     df[1] = df[1].astype(str)
     df = df.transpose()        
     df.columns = df.loc[0,:]
-    df = df.iloc[1]  
+    df = df.iloc[1] 
     
-    if not(soup.find('dd', class_="is24qa-objektzustand grid-item three-fifths")):
-        zustand = ''
-    else: 
-        zustand = soup.find('dd', class_="is24qa-objektzustand grid-item three-fifths").text
-    if not(soup.find('dd', class_='is24qa-wesentliche-energietraeger grid-item three-fifths')):
-        energieträger = ''
-    else: 
-        energieträger = soup.find('dd', class_='is24qa-wesentliche-energietraeger grid-item three-fifths').text
-    if not(soup.find('pre', class_='is24qa-objektbeschreibung text-content short-text')):
-        objbeschr = ''
-    else: 
-        objbeschr = soup.find('pre', class_='is24qa-objektbeschreibung text-content short-text').text
-    if not(soup.find('pre', class_='is24qa-ausstattung text-content short-text')):
-        ausstattung = ''
-    else:
-        ausstattung = soup.find('pre', class_='is24qa-ausstattung text-content short-text').text
-    if not(soup.find('pre', class_='is24qa-lage text-content short-text')):
-        lage = ''
-    else: 
-        lage = soup.find('pre', class_='is24qa-lage text-content short-text').text
-    if not(soup.find('pre', class_='is24qa-sonstiges text-content short-text')):
-        misc = ''
-    else:
-        misc = soup.find('pre', class_='is24qa-sonstiges text-content short-text').text
+    if df['obj_scoutId'] not in str(immo.ExposeID):
+        if not(soup.find('dd', class_="is24qa-objektzustand grid-item three-fifths")):
+            zustand = ''
+        else: 
+            zustand = soup.find('dd', class_="is24qa-objektzustand grid-item three-fifths").text
+        if not(soup.find('dd', class_='is24qa-wesentliche-energietraeger grid-item three-fifths')):
+            energieträger = ''
+        else: 
+            energieträger = soup.find('dd', class_='is24qa-wesentliche-energietraeger grid-item three-fifths').text
+        if not(soup.find('pre', class_='is24qa-objektbeschreibung text-content short-text')):
+            objbeschr = ''
+        else: 
+            objbeschr = soup.find('pre', class_='is24qa-objektbeschreibung text-content short-text').text
+        if not(soup.find('pre', class_='is24qa-ausstattung text-content short-text')):
+            ausstattung = ''
+        else:
+            ausstattung = soup.find('pre', class_='is24qa-ausstattung text-content short-text').text
+        if not(soup.find('pre', class_='is24qa-lage text-content short-text')):
+            lage = ''
+        else: 
+            lage = soup.find('pre', class_='is24qa-lage text-content short-text').text
+        if not(soup.find('pre', class_='is24qa-sonstiges text-content short-text')):
+            misc = ''
+        else:
+            misc = soup.find('pre', class_='is24qa-sonstiges text-content short-text').text
+        if not(soup.find(class_= 'is24qa-schlafzimmer grid-item three-fifths')):
+            schlafzimmer = 'Nan'
+        else:
+            schlafzimmer = soup.find(class_= 'is24qa-schlafzimmer grid-item three-fifths').text        
+        if not(soup.find(class_="is24qa-badezimmer grid-item three-fifths")):
+            badezimmer = 'Nan'
+        else:
+            badezimmer = soup.find(class_="is24qa-badezimmer grid-item three-fifths").text
         
-    words = ['obj_regio2', 'obj_scoutId', 'obj_totalRent', 'obj_baseRent',
-             'obj_livingSpace', 'obj_floor', 'obj_balcony', 'obj_yearConstructed']
-    for word in words:
-        if not(word in df):
-            df[word] = 'Nan'
-    obj = pd.DataFrame({'ExposeID'  : [df.obj_scoutId], 
-                        'City'      : [df.obj_regio2],
-                        'TotalRent' : [df.obj_totalRent],
-                        'BaseRent'  : [df.obj_baseRent], 
-                        'Area'      : [df.obj_livingSpace],
-                        'Floor'     : [df.obj_floor],
-                        'Title'     : [Title],
-                        'Condition' : [zustand],
-                        'Energy'    : [energieträger],
-                        'Description' : [objbeschr],
-                        'Equipment' : [ausstattung],
-                        'Location'  : [lage],
-                        'Miscellaneous' : [misc],
-                        'Balcony'   : [df.obj_balcony],
-                        'YearBuilt' : [df.obj_yearConstructed]})
-    immo = immo.append(obj,  ignore_index=True)
-    expose = 'https://www.immobilienscout24.de/Suche/controller/exposeNavigation/navigate.go?action=NEXT&searchUrl=/Suche/S-T/Wohnung-Miete/Baden-Wuerttemberg/Freiburg-im-Breisgau?enteredFrom%3Done_step_search&exposeId=' + df['obj_scoutId']
- 
+        words = ['obj_scoutId', 'obj_regio1', 'obj_regio2', 'obj_regio3', 'geo_krs', 'obj_street', 
+                 'obj_houseNumber', 'obj_zipCode', 'obj_totalRent', 'obj_baseRent', 'obj_livingSpace', 'obj_noRooms', 
+                 'obj_floor', 'obj_numberOfFloors', 'obj_energyEfficiencyClass', 'obj_balcony', 
+                 'obj_garden', 'obj_hasKitchen', 'obj_cellar', 'obj_lift', 'obj_assistedLiving', 'obj_yearConstructed', 
+                 'obj_petsAllowed', 'obj_barrierFree', 'obj_picturecount']
+    
+        for word in words:
+            if not(word in df):
+                df[word] = 'Nan'
+            
+        obj = pd.DataFrame({'ExposeID'           : [df.obj_scoutId], 
+                            'City'               : [df.obj_regio1],
+                            'City2'              : [df.obj_regio2],
+                            'City3'              : [df.obj_regio3],
+                            'City4'              : [df.geo_krs],
+                            'Street'             : [df.obj_street],
+                            'HouseNumber'        : [df.obj_houseNumber],
+                            'ZipCode'            : [df.obj_zipCode],
+                            'TotalRent'          : [df.obj_totalRent],
+                            'BaseRent'           : [df.obj_baseRent], 
+                            'Area'               : [df.obj_livingSpace],
+                            'Rooms'              : [df.obj_noRooms],
+                            'Bedrooms'           : [badezimmer],
+                            'Bathrooms'          : [schlafzimmer],
+                            'Floor'              : [df.obj_floor],
+                            'MaxFloor'           : [df.obj_numberOfFloors],
+                            'Title'              : [Title],
+                            'Condition'          : [zustand],
+                            'Energy'             : [energieträger],
+                            'EnergyEfficiency'   : [df.obj_energyEfficiencyClass],
+                            'Description'        : [objbeschr],
+                            'Equipment'          : [ausstattung],
+                            'Location'           : [lage],
+                            'Miscellaneous'      : [misc],
+                            'Balcony'            : [df.obj_balcony],
+                            'Garden'             : [df.obj_garden],
+                            'Kitchen'            : [df.obj_hasKitchen],
+                            'Cellar'             : [df.obj_cellar],
+                            'Lift'               : [df.obj_lift],
+                            'AssistedLiving'     : [df.obj_assistedLiving],
+                            'YearBuilt'          : [df.obj_yearConstructed],
+                            'PetsAllowed'        : [df.obj_petsAllowed],
+                            'BarrierFree'        : [df.obj_barrierFree],
+                            'NumberImages'       : [df.obj_picturecount], 
+                            'ImageText'          : '', 
+                            'Video'              : '', 
+                            'GroundPlan'         : ''})
+    
+        #All Images:
+        #imagelinks = soup.findAll(class_="sp-slide")
+        #obj.NumberImages = len(imagelinks) #save new variable
+        #imagelinks = list(imagelinks)
+        #for i in range(len(imagelinks)):
+        #    val = random()
+        #    scaled_value = 1 + (val * 10)
+        #    time.sleep(scaled_value)
+        #    a = str(imagelinks[i])
+        #    index = a.find('data-virtualtourlinkid')
+        #    a = a[:(index-2)]
+        #    index = a.find('data-src="')
+        #    a = a[(index+10):]
+        #    im = requests.get(a)
+        #    img = Image.open(BytesIO(im.content))
+        #    img.save("C:/Users/Besitzer/Desktop/Immoscout-Images/" + obj.ExposeID[0] + '-' + str(i) + ".jpg") 
+        
+        #All Images and Image Text
+        img_tags = soup.find_all('img')
+        image = [img for img in img_tags if 'sp-image' in str(img) and 'floorplan-link' not in str(img)]    
+        #obj.NumberImages = len(image)
+        #Save Image Text
+        images_text = ''
+        for i in range(len(image)): 
+            image_text = str(image[i])
+            index = image_text.find('"')
+            image_text = image_text[index+1:]
+            index = image_text.find('"')
+            image_text = image_text[:index]
+            images_text = images_text + str(i) + ' ' + image_text + ' '
+        obj.ImageText = images_text
+        #Save Images
+        images = [img['data-src'] for img in image]
+        for i in range(len(images)):
+            im = requests.get(images[i])
+            img = Image.open(BytesIO(im.content))
+            img.save("C:/Users/Besitzer/Desktop/Immoscout-Images/" + obj.ExposeID[0] + '-' + str(i) + ".jpg") 
+            val = random()
+            scaled_value = 1 + (val * 8)
+            time.sleep(scaled_value)
+        
+        #Video
+        #videolinks = soup.findAll(class_="sp-slide video-slide")
+        videolinks = soup.findAll(class_="button slideToVideo is24-fullscreen-gallery-trigger")
+        obj.Video = len(videolinks)
+        
+        #Groundplan as pdf in expose
+        groundplan = soup.find(class_="is24-linklist margin-bottom")
+        groundplan = str(groundplan)
+        obj.GroundPlan = groundplan.count('PDF</span')
+        if '" target="' and '<a href="' in groundplan: #just first groundplan
+            index = groundplan.find('<a href="')
+            groundplan = groundplan[(index+9):]
+            index = groundplan.find('" target="')
+            groundplan = groundplan[:index]
+            im = requests.get(groundplan)
+            groundp = convert_from_path(groundplan, 200)
+            saveas = 'C:/Users/Besitzer/Desktop/Immoscout-GroundPlan/' + obj.ExposeID[0] + 'GPasPDF' + '.jpg'
+            groundp[0].save(saveas, 'JPEG')
+            
+        #Groundplan as image in expose
+        img_tags = soup.find_all('img') #find all images in expose
+        floorplan = [img for img in img_tags if 'floorplan-link' in str(img)]
+        if len(floorplan) > 0:
+            obj.GroundPlan = obj.GroundPlan + len(floorplan)
+            floorplan = [img['data-src'] for img in floorplan]
+            floorplan = str(floorplan[0]) #just first floorplan
+            im = requests.get(floorplan)
+            img = Image.open(BytesIO(im.content))
+            img.save("C:/Users/Besitzer/Desktop/Immoscout-GroundPlan/" + obj.ExposeID[0] + 'GPasImage' + ".jpg") 
+        
+        value = random()
+        scaled_value = 1 + (value * 20)
+        time.sleep(scaled_value) 
+        
+        immo = immo.append(obj,  ignore_index=True)
+        
+    #Next expose
+    #expose = 'https://www.immobilienscout24.de/Suche/controller/exposeNavigation/navigate.go?action=NEXT&searchUrl=/Suche/S-T/Wohnung-Miete/Baden-Wuerttemberg/Freiburg-im-Breisgau?enteredFrom%3Done_step_search&exposeId=' + df['obj_scoutId']
+    links = soup.find_all('a', href=True)
+    url = [a['href'] for a in links if 'wohnung-mieten' in str(a)] #Länge von zwei (Suche in Stadt und in Stadtteil)
+    go_to = '/Suche/controller/exposeNavigation/navigate.go?action=NEXT&amp;searchUrl=' + url[0] + '?enteredFrom%3Done_step_search&amp;exposeId=' + df['obj_scoutId']
+    go_to = go_to.replace('amp;', '')
+    expose =  'https://www.immobilienscout24.de' + go_to
+        
+    print('Finished Expose-Nr.:', k)
+    immo = immo.drop_duplicates()
+immo.to_pickle("C:/Users/Besitzer/Desktop/Immoscout-Data/" + 
+               str(datetime.now().hour) + '-' +
+               str(datetime.now().minute) + '_' +
+               str(datetime.now().day) + '-' +
+               str(datetime.now().month) + '-' +
+               str(datetime.now().year) + '.pkl') 
