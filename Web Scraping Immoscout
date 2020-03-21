@@ -59,7 +59,7 @@ for k in range(1,1901):
     df.columns = df.loc[0,:]
     df = df.iloc[1] 
     
-    if df['obj_scoutId'] not in str(immo.ExposeID):
+    if df['obj_scoutId'] not in (str(immo.ExposeID) and str(old_immo.ExposeID)):
         if not(soup.find('dd', class_="is24qa-objektzustand grid-item three-fifths")):
             zustand = ''
         else: 
