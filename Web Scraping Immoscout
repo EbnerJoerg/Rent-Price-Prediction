@@ -15,6 +15,7 @@ from PIL import Image
 from io import BytesIO
 from datetime import datetime
 from pdf2image import convert_from_path
+import os
 
 
 immo = pd.DataFrame(columns = ['ExposeID', 'City', 'City2', 'City3', 'City4', 'Street', 'HouseNumber', 'ZipCode', 
