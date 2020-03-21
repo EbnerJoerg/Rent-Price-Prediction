@@ -21,6 +21,19 @@ immo = pd.DataFrame(columns = ['ExposeID', 'City', 'City2', 'City3', 'City4', 'S
                                'TotalRent', 'BaseRent', 'Area', 'Rooms', 'Bedrooms', 'Bathrooms', 'Floor', 'MaxFloor', 'Title', 
                                'Condition', 'Energy', 'EnergyEfficiency', 'Description', 'Equipment', 'Location', 'Miscellaneous', 
                                'Balcony', 'Garden', 'Kitchen', 'Cellar', 'Lift', 'AssistedLiving', 'YearBuilt', 'PetsAllowed', 'BarrierFree', 'NumberImages', 'ImageText', 'Video', 'GroundPlan'])
+#look for existing ExposeID's to prevent duplicates
+old_immo = pd.DataFrame(columns= immo.columns) 
+path_data = "C:/Users/Besitzer/Desktop/Immoscout-Data/"
+for file in os.listdir(path_data):
+    print(file)
+    im = pd.read_pickle(path_data + file)
+    old_immo = pd.concat([old_immo, im]) 
+del im
+old_immo = old_immo.drop_duplicates()
+
+
+
+
 # Set the URL you want to webscrape from
 expose = 'https://www.immobilienscout24.de/expose/116456714/'
 for k in range(1,1901):
